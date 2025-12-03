@@ -27,6 +27,7 @@ module Problem3 {
         ensures 0 <= MaxIndex(xs).1 < |xs|
         ensures MaxIndex(xs).0 == xs[MaxIndex(xs).1]
         ensures forall i :: 0 <= i < |xs| ==> MaxIndex(xs).0 >= xs[i]
+        ensures forall i :: 0 <= i < |xs| && xs[i] == MaxIndex(xs).0 ==> MaxIndex(xs).1 <= i
     {
         if |xs| == 1 then
             (xs[0], 0)
