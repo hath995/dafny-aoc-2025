@@ -106,7 +106,7 @@ module Problem4 {
                 invariant forall index :: index in found ==> index.1 <= i
                 invariant forall index :: index in found ==> index.0 >= k ==> index.1 < i
            {
-                if ltFour(grid, k, i, length, removed) && grid[i][k] == '@' && (k,i) !in removed {
+                if (k,i) !in removed && grid[i][k] == '@' && ltFour(grid, k, i, length, removed) {
                     assert (k,i) !in found;
                     found := found + {(k,i)};
                     x := x + 1;
@@ -121,8 +121,7 @@ module Problem4 {
     {
        var grid, length := parseInput(input);
        x := 0;
-       var found: set<(nat, nat)> := {};
-       var nRemoved, removed := problem4_helper(grid, length, found);
+       var nRemoved, removed := problem4_helper(grid, length, {});
        while nRemoved > 0 
          decreases *
        {
