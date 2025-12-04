@@ -1,6 +1,6 @@
 module Split {
-    function sumSeq(ss: seq<string>, separator: string ): string {
-        if |ss| == 0 then "" else if |ss| == 1 then ss[0] else ss[0] + separator + sumSeq(ss[1..], separator)
+    function join(ss: seq<string>, separator: string ): string {
+        if |ss| == 0 then "" else if |ss| == 1 then ss[0] else ss[0] + separator + join(ss[1..], separator)
     }
 
     function partialSumSeq(ss: seq<string>, separator: string ): string {
@@ -25,14 +25,14 @@ module Split {
 
     lemma sumSeqPartial(ss: seq<string>,  separator: string)
         requires |ss| >0
-        ensures sumSeq(ss, separator) == partialSumSeq(ss[..|ss|-1], separator)+ss[|ss|-1]
+        ensures join(ss, separator) == partialSumSeq(ss[..|ss|-1], separator)+ss[|ss|-1]
     {
         if |ss| == 1 {
 
         }else{
             assert |ss| > 1;
             sumSeqPartial(ss[1..], separator);
-            assert sumSeq(ss[1..], separator) == partialSumSeq(ss[1..][..|ss[1..]|-1], separator)+ss[1..][|ss[1..]|-1];
+            assert join(ss[1..], separator) == partialSumSeq(ss[1..][..|ss[1..]|-1], separator)+ss[1..][|ss[1..]|-1];
             assert ss[|ss|-1] == ss[1..][|ss[1..]|-1];
             assert ss[1..][..|ss[1..]|-1] == ss[1..|ss|-1];
 
@@ -98,7 +98,7 @@ module Split {
         ensures results <= splitHelper(s, separator, index, sindex, results)
         ensures 1 <= |splitHelper(s, separator, index, sindex, results)| <= |s|+1
         ensures (|splitHelper(s,separator, index, sindex, results)|-1)*|separator| + sumLength(splitHelper(s,separator, index, sindex, results)) == |s|
-        ensures sumSeq(splitHelper(s, separator, index, sindex, results), separator) == s
+        ensures join(splitHelper(s, separator, index, sindex, results), separator) == s
         decreases |s| - index
     {
         if index == |s| then
@@ -118,19 +118,19 @@ module Split {
 
     lemma {:induction } SplitOnLettersSlice(s: string, i: int)
         requires 0 <= i < |s|
-        ensures sumSeq(splitOnLetter(s, 0, [])[i..], "") == s[i..]
+        ensures join(splitOnLetter(s, 0, [])[i..], "") == s[i..]
         decreases |s|-i
     {
     }
 
     lemma SplitOnLettersIdemp(s: string)
-        ensures sumSeq(splitOnLetter(s, 0, []), "") == s
+        ensures join(splitOnLetter(s, 0, []), "") == s
     {
         if |s| == 0 {
             assert s == "";
             assert splitOnLetter(s, 0,[]) ==[];
-            assert sumSeq([],"") == "";
-            assert sumSeq(splitOnLetter(s, 0, []), "") == s;
+            assert join([],"") == "";
+            assert join(splitOnLetter(s, 0, []), "") == s;
         }else if |s| == 1 {
             assert splitOnLetter(s, 0,[]) ==[s[0..1]];
         }else{
@@ -143,7 +143,7 @@ module Split {
     }
 
     function split(s: string, separator: string): seq<string> 
-        ensures sumSeq(split(s, separator), separator) == s
+        ensures join(split(s, separator), separator) == s
     {
         if |separator| == 0 then
             SplitOnLettersIdemp(s);
@@ -175,5 +175,5 @@ module Split {
         if Contains(s, "\r\n") then split(s,"\r\n\r\n") else split(s,"\n\n")
     }
 
-    export provides split, Contains, splitOnBreak, splitOnDoubleBreak, sumSeq
+    export provides split, Contains, splitOnBreak, splitOnDoubleBreak, join
 }
