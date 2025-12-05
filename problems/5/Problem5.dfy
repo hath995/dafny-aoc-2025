@@ -125,6 +125,63 @@ module Problem5 {
         }
     }
 
+    lemma MergeIsTheSame(r: (nat, nat), l: (nat, nat))
+        requires r.0 <= r.1
+        requires l.0 <= l.1
+        requires IsOverlapping(r, l)
+        ensures rangeSet(mergeRange(r,l)) == rangeSet(r)+rangeSet(l)
+    {}
+
+    function Union(rs: seq<(nat, nat)>): set<nat>
+        requires forall r :: r in rs ==> r.0 <= r.1
+    {
+        if rs == [] then {} else rangeSet(rs[0])+Union(rs[1..])
+    }
+
+    lemma UnionConcat(rs: seq<(nat, nat)>, ls:  seq<(nat, nat)>)
+        requires forall r :: r in rs ==> r.0 <= r.1
+        requires forall r :: r in ls ==> r.0 <= r.1
+        ensures Union(rs)+Union(ls) == Union(rs+ls)
+    {
+        if rs == [] {
+            assert Union(rs) == {};
+            assert rs+ls == ls;
+            assert Union(rs)+Union(ls) == Union(rs+ls);
+        }else{
+            assert rs == [rs[0]]+rs[1..];
+            UnionConcat(rs[1..], ls);
+            assert (rs+ls)[1..] == rs[1..]+ls;
+            assert Union(rs)+Union(ls) == Union(rs+ls);
+        }
+    }
+
+    lemma UnionConcatSame(rs: seq<(nat, nat)>, ls:  seq<(nat, nat)>, xs: seq<(nat, nat)>)
+        requires forall r :: r in rs ==> r.0 <= r.1
+        requires forall r :: r in ls ==> r.0 <= r.1
+        requires forall r :: r in xs ==> r.0 <= r.1
+        requires ls != xs
+        requires Union(ls) == Union(xs)
+        ensures Union(rs)+Union(ls) == Union(rs)+Union(xs)
+        ensures Union(rs+ls)==Union(rs+xs)
+    {
+        UnionConcat(rs, ls);
+        UnionConcat(rs, xs);
+    }
+
+    lemma UnionConcatSame2(rs: seq<(nat, nat)>, ls:  seq<(nat, nat)>, xs: seq<(nat, nat)>)
+        requires forall r :: r in rs ==> r.0 <= r.1
+        requires forall r :: r in ls ==> r.0 <= r.1
+        requires forall r :: r in xs ==> r.0 <= r.1
+        requires rs != ls
+        requires Union(rs) == Union(ls)
+        ensures Union(rs)+Union(xs) == Union(ls)+Union(xs)
+        ensures Union(rs+xs)==Union(ls+xs)
+    {
+        UnionConcat(ls, xs);
+        UnionConcat(rs, xs);
+    }
+
+
     method problem5_2(input: string) returns (answer: int)
         decreases *
     {
@@ -133,11 +190,31 @@ module Problem5 {
         IsTotalOrder();
         var sortedRanges := MergeSortBy(lteRange, ranges);
         assert forall r :: r in sortedRanges ==> r in multiset(sortedRanges);
+        ghost var original := Union(sortedRanges);
         while HasOverlapping(sortedRanges) 
             decreases *
             invariant forall r :: r in sortedRanges ==> r.0 <= r.1
+            invariant Union(sortedRanges) == original
         {
             var i :| 0 <= i < |sortedRanges|-1 && IsOverlapping(sortedRanges[i], sortedRanges[i+1]);
+            assert sortedRanges[0..i]+sortedRanges[i..i+2]== sortedRanges[0..i+2];
+            assert sortedRanges == sortedRanges[0..i+2]+sortedRanges[i+2..];
+            assert sortedRanges[0..i+2] == sortedRanges[0..i]+sortedRanges[i..i+2];
+            assert Union([mergeRange(sortedRanges[i], sortedRanges[i+1])]) == Union(sortedRanges[i..i+2]) by {
+                calc {
+                    Union([mergeRange(sortedRanges[i], sortedRanges[i+1])]);
+                    rangeSet(mergeRange(sortedRanges[i], sortedRanges[i+1]));
+                }
+                assert sortedRanges[i..i+2][0] == sortedRanges[i];
+                calc {
+                    Union(sortedRanges[i..i+2]);
+                    rangeSet(sortedRanges[i])+ Union(sortedRanges[i+1..i+2]);
+                    {assert sortedRanges[i+1..i+2][0] == sortedRanges[i+1];}
+                    rangeSet(sortedRanges[i])+rangeSet(sortedRanges[i+1]);
+                }
+            }
+            UnionConcatSame(sortedRanges[0..i],sortedRanges[i..i+2], [mergeRange(sortedRanges[i], sortedRanges[i+1])]);
+            UnionConcatSame2(sortedRanges[0..i+2],sortedRanges[0..i]+ [mergeRange(sortedRanges[i], sortedRanges[i+1])], sortedRanges[i+2..]);
             sortedRanges := sortedRanges[0..i]+[mergeRange(sortedRanges[i], sortedRanges[i+1])] + sortedRanges[i+2..];
         }
         for i := 0 to |sortedRanges| 
@@ -146,4 +223,14 @@ module Problem5 {
         }
         print "\n";
     }
+
+    // MergeIsTheSame(sortedRanges[i], sortedRanges[i+1]);
+    // UnionConcat(sortedRanges[0..i],sortedRanges[i..i+2]);
+    // UnionConcat(sortedRanges[0..i+2],sortedRanges[i+2..]);
+    // assert Union(sortedRanges[0..i+2]+ sortedRanges[i+2..]) == Union(sortedRanges);
+    // UnionConcat(sortedRanges[0..i],sortedRanges[i..i+2]);
+    // UnionConcatSame(sortedRanges[0..i],sortedRanges[i..i+2], [mergeRange(sortedRanges[i], sortedRanges[i+1])]);
+    // assert Union(sortedRanges[0..i+2]) == Union(sortedRanges[0..i]+[mergeRange(sortedRanges[i], sortedRanges[i+1])]);
+    // assert Union(sortedRanges[0..i]+[mergeRange(sortedRanges[i], sortedRanges[i+1])]+ sortedRanges[i+2..]) == Union(sortedRanges[0..i+2]+ sortedRanges[i+2..]);
+    // assert Union(sortedRanges[0..i+2]+ sortedRanges[i+2..]) == original;
 }
