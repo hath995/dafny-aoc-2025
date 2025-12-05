@@ -147,6 +147,14 @@ module Problem5 {
         if rs == [] then {} else rangeSet(rs[0])+Union(rs[1..])
     }
 
+    function UnionRev(rs: seq<(nat, nat)>): set<nat>
+        requires forall r :: r in rs ==> r.0 <= r.1
+        ensures forall x :: x in rs ==> rangeSet(x) <= UnionRev(rs)
+        ensures forall y :: y in UnionRev(rs) ==> exists r :: r in rs && y in rangeSet(r)
+    {
+        if rs == [] then {} else rangeSet(rs[|rs|-1])+UnionRev(rs[0..|rs|-1])
+    }
+
     lemma UnionConcat(rs: seq<(nat, nat)>, ls:  seq<(nat, nat)>)
         requires forall r :: r in rs ==> r.0 <= r.1
         requires forall r :: r in ls ==> r.0 <= r.1
@@ -163,6 +171,31 @@ module Problem5 {
             assert Union(rs)+Union(ls) == Union(rs+ls);
         }
     }
+
+    lemma UnionConcatRev(rs: seq<(nat, nat)>, ls:  seq<(nat, nat)>)
+        requires forall r :: r in rs ==> r.0 <= r.1
+        requires forall r :: r in ls ==> r.0 <= r.1
+        ensures UnionRev(ls)+UnionRev(rs) == UnionRev(rs+ls)
+    {
+        if ls == [] {
+            assert UnionRev(ls) == {};
+            assert rs+ls == rs;
+            assert UnionRev(ls)+UnionRev(rs) == UnionRev(rs+ls);
+        }else{
+            assert ls == ls[0..|ls|-1]+[ls[|ls|-1]];
+            assert (rs+ls)[0..|rs+ls|-1] == rs + ls[0..|ls|-1];
+            UnionConcatRev(rs, ls[0..|ls|-1]);
+            assert UnionRev(ls)+UnionRev(rs) == UnionRev(rs+ls);
+        }
+    }
+
+    lemma UnionsAreEqual(rs: seq<(nat, nat)>)
+        requires forall r :: r in rs ==> r.0 <= r.1
+        ensures Union(rs) == UnionRev(rs)
+    {
+
+    }
+
 
     lemma UnionConcatSame(rs: seq<(nat, nat)>, ls:  seq<(nat, nat)>, xs: seq<(nat, nat)>)
         requires forall r :: r in rs ==> r.0 <= r.1
@@ -274,8 +307,53 @@ module Problem5 {
         }
     }
 
+    lemma UnionSumRev(sortedRanges: seq<(nat, nat)>)
+        requires |sortedRanges| > 0
+        requires forall r :: r in sortedRanges ==> r.0 <= r.1
+        requires forall i,j :: 0 <= i < j < |sortedRanges| ==> rangeSet(sortedRanges[i]) * rangeSet(sortedRanges[j])  == {} 
+        ensures |UnionRev(sortedRanges)| == |rangeSet(sortedRanges[|sortedRanges|-1])| + |UnionRev(sortedRanges[..|sortedRanges|-1])|
+    {
+        if |sortedRanges| == 1 {
 
-    method problem5_2(input: string) returns (answer: int)
+        // assert |Union(sortedRanges)| == |rangeSet(sortedRanges[0])| + |Union(sortedRanges[1..])|;
+            assert |UnionRev(sortedRanges)| == |rangeSet(sortedRanges[|sortedRanges|-1])| + |UnionRev(sortedRanges[..|sortedRanges|-1])|;
+        }else{
+            UnionSumRev(sortedRanges[..|sortedRanges|-1]);
+             assert rangeSet(sortedRanges[|sortedRanges|-1]) * UnionRev(sortedRanges[..|sortedRanges|-1]) == {};
+            // assert rangeSet(sortedRanges[0]) * Union(sortedRanges[1..]) == {};
+            // assert |Union(sortedRanges)| == |rangeSet(sortedRanges[0])| + |Union(sortedRanges[1..])|;
+            assert |UnionRev(sortedRanges)| == |rangeSet(sortedRanges[|sortedRanges|-1])| + |UnionRev(sortedRanges[..|sortedRanges|-1])|;
+        }
+    }
+
+    // lemma {:isolate_assertions} UnionSum2(xs: seq<(nat, nat)>, ys: seq<(nat, nat)>)
+    //     // requires |xs| > 0
+    //     requires forall r :: r in xs ==> r.0 <= r.1
+    //     requires forall i,j :: 0 <= i < j < |xs| ==> rangeSet(xs[i]) * rangeSet(xs[j])  == {} 
+    //     requires forall r :: r in ys ==> r.0 <= r.1
+    //     requires forall i,j :: 0 <= i < j < |ys| ==> rangeSet(ys[i]) * rangeSet(ys[j])  == {} 
+    //     requires !HasOverlapping(xs)
+    //     requires !HasOverlapping(ys)
+    //     requires |ys| > 0 && |xs| > 0 ==> !IsOverlapping(xs[|xs|-1], ys[0])
+    //     ensures |Union(xs+ys)| == |Union(xs)| + |Union(ys)|
+    // {
+    //     if xs == [] {
+    //         assert |Union(xs+ys)| == |Union(xs)| + |Union(ys)|;
+    //     } else if |xs| == 1 {
+    //         SortedAreDistjoint(xs+ys);
+    //         UnionConcat(xs, ys);
+    //         assert |Union(xs+ys)| == |Union(xs)| + |Union(ys)|;
+    //     }else{
+    //         UnionSum2(xs[1..], ys);
+    //         UnionConcat(xs[1..], ys);
+    //         UnionConcat(xs, ys);
+    //         assert (xs+ys)[1..] == xs[1..]+ys;
+    //         assert |Union(xs+ys)| == |Union(xs)| + |Union(ys)|;
+    //     }
+    // }
+
+
+    method {:isolate_assertions} problem5_2(input: string) returns (answer: int)
         decreases *
     {
         var ranges, ids := parseInput(input);
@@ -288,15 +366,28 @@ module Problem5 {
             decreases *
             invariant forall r :: r in sortedRanges ==> r.0 <= r.1
             invariant Union(sortedRanges) == original
+            invariant SortedBy(lteRange, sortedRanges)
         {
             var i :| 0 <= i < |sortedRanges|-1 && IsOverlapping(sortedRanges[i], sortedRanges[i+1]);
             UnionLemma(sortedRanges, i);
             sortedRanges := sortedRanges[0..i]+[mergeRange(sortedRanges[i], sortedRanges[i+1])] + sortedRanges[i+2..];
         }
+        ghost var answerSet: set<nat> := {};
         for i := 0 to |sortedRanges| 
+            invariant answerSet == UnionRev(sortedRanges[..i])
+            invariant answer == |UnionRev(sortedRanges[..i])|
+            // invariant answer == |Union(sortedRanges[..i])|
         {
+            assert sortedRanges[0..i+1] == sortedRanges[0..i] + [sortedRanges[i]];
+            UnionConcatRev(sortedRanges[0..i],[sortedRanges[i]]);
+            // UnionSumRev(sortedRanges[..i]);
+            RangeSizeEqual(sortedRanges[i]);
+            answerSet := answerSet + rangeSet(sortedRanges[i]);
             answer := answer + rangeSize(sortedRanges[i]);
         }
+        assert sortedRanges[..|sortedRanges|] == sortedRanges;
+        UnionsAreEqual(sortedRanges);
+        assert answer == |original|;
         print "\n";
     }
 
