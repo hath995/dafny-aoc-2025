@@ -11,7 +11,6 @@ module Problem5 {
     {
         var pieces := splitOnDoubleBreak(input);
         expect |pieces| == 2;
-        // print "pieces 0 ", pieces[0];
         var rangeStrings := splitOnBreak(pieces[0]);
         var idStrings := splitOnBreak(pieces[1]);
 
@@ -22,11 +21,9 @@ module Problem5 {
             invariant forall range :: range in ranges ==> range.0 <= range.1
         {
             var split_range := split(rangeStrings[i], "-");
-            // print "\n", split_range;
             expect |split_range| == 2;
             var start := Integer(split_range[0]);
             var end := Integer(split_range[1]);
-            // print "\ns ", start, " ",  end; 
             expect 0 < start <= end;
             ranges := ranges + [(start, end)];
         }
@@ -136,7 +133,6 @@ module Problem5 {
         IsTotalOrder();
         var sortedRanges := MergeSortBy(lteRange, ranges);
         assert forall r :: r in sortedRanges ==> r in multiset(sortedRanges);
-        var i := 0;
         while HasOverlapping(sortedRanges) 
             decreases *
             invariant forall r :: r in sortedRanges ==> r.0 <= r.1
