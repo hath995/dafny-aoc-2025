@@ -132,8 +132,17 @@ module Problem5 {
         ensures rangeSet(mergeRange(r,l)) == rangeSet(r)+rangeSet(l)
     {}
 
+    lemma NonOverlappingDisjoint(r: (nat, nat), l: (nat, nat))
+        requires r.0 <= r.1
+        requires l.0 <= l.1
+        requires !IsOverlapping(r, l)
+        ensures rangeSet(r)*rangeSet(l) == {}
+    {}
+
     function Union(rs: seq<(nat, nat)>): set<nat>
         requires forall r :: r in rs ==> r.0 <= r.1
+        ensures forall x :: x in rs ==> rangeSet(x) <= Union(rs)
+        ensures forall y :: y in Union(rs) ==> exists r :: r in rs && y in rangeSet(r)
     {
         if rs == [] then {} else rangeSet(rs[0])+Union(rs[1..])
     }
@@ -204,6 +213,65 @@ module Problem5 {
         }
         UnionConcatSame(sortedRanges[0..i],sortedRanges[i..i+2], [mergeRange(sortedRanges[i], sortedRanges[i+1])]);
         UnionConcatSame2(sortedRanges[0..i+2],sortedRanges[0..i]+ [mergeRange(sortedRanges[i], sortedRanges[i+1])], sortedRanges[i+2..]);
+    }
+
+    lemma SortedAreDistjointOverlapping(sortedRanges: seq<(nat, nat)>)
+        requires forall r :: r in sortedRanges ==> r.0 <= r.1
+        requires !HasOverlapping(sortedRanges)
+        requires SortedBy(lteRange, sortedRanges)
+        ensures forall i :: 0 < i < |sortedRanges| ==> !IsOverlapping(sortedRanges[0], sortedRanges[i])
+    {
+        if |sortedRanges| <= 1 {
+
+        }else{
+            SortedAreDistjointOverlapping(sortedRanges[1..]);
+        }
+    }
+
+    lemma SortedAreDistjoint(sortedRanges: seq<(nat, nat)>)
+        requires forall r :: r in sortedRanges ==> r.0 <= r.1
+        requires !HasOverlapping(sortedRanges)
+        requires SortedBy(lteRange, sortedRanges)
+        ensures forall i,j :: 0 <= i < j < |sortedRanges| ==> rangeSet(sortedRanges[i]) * rangeSet(sortedRanges[j])  == {} 
+    {
+        if |sortedRanges| <= 1 {
+            assert forall i,j :: 0 <= i < j < |sortedRanges| ==> rangeSet(sortedRanges[i]) * rangeSet(sortedRanges[j])  == {};
+        }else{
+            SortedAreDistjoint(sortedRanges[1..]);
+            assert sortedRanges == [sortedRanges[0]]+sortedRanges[1..];
+            assert !IsOverlapping(sortedRanges[0], sortedRanges[1]);
+            assert forall i :: 0 <= i <|sortedRanges[1..]| ==> !IsOverlapping(sortedRanges[0], sortedRanges[1..][i]) by {
+                forall i | 0 <= i <|sortedRanges[1..]|
+                    ensures !IsOverlapping(sortedRanges[0], sortedRanges[1..][i])
+                {
+                    if i == 0 {
+                        assert !IsOverlapping(sortedRanges[0], sortedRanges[1..][i]);
+                    }else{
+                        // assert sortedRanges[i] == sortedRanges[1..][]
+                        SortedAreDistjointOverlapping(sortedRanges[1..]);
+                        assert !IsOverlapping(sortedRanges[1..][0], sortedRanges[1..][i]);
+                        assert !IsOverlapping(sortedRanges[0], sortedRanges[1..][i]);
+                    }
+                }
+            }
+            assert forall i,j :: 0 <= i < j < |sortedRanges| ==> rangeSet(sortedRanges[i]) * rangeSet(sortedRanges[j])  == {};
+        }
+    }
+
+    lemma UnionSum(sortedRanges: seq<(nat, nat)>)
+        requires |sortedRanges| > 0
+        requires forall r :: r in sortedRanges ==> r.0 <= r.1
+        requires forall i,j :: 0 <= i < j < |sortedRanges| ==> rangeSet(sortedRanges[i]) * rangeSet(sortedRanges[j])  == {} 
+        ensures |Union(sortedRanges)| == |rangeSet(sortedRanges[0])| + |Union(sortedRanges[1..])|
+    {
+        if |sortedRanges| == 1 {
+
+        assert |Union(sortedRanges)| == |rangeSet(sortedRanges[0])| + |Union(sortedRanges[1..])|;
+        }else{
+            UnionSum(sortedRanges[1..]);
+            assert rangeSet(sortedRanges[0]) * Union(sortedRanges[1..]) == {};
+            assert |Union(sortedRanges)| == |rangeSet(sortedRanges[0])| + |Union(sortedRanges[1..])|;
+        }
     }
 
 
