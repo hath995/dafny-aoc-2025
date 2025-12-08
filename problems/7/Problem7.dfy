@@ -69,12 +69,43 @@ module Problem7 {
         }
     }
 
+    lemma ThereIsAMinimumMultisetNat(s: multiset<nat>)
+        requires s != multiset{}
+        ensures exists x :: x in s && forall y :: y in s ==> x <= y
+    {
+        assert s != multiset{};
+        var x :| x in s;
+        if |s| == s[x] {
+            if y :| y in s && y != x && s[y] > 0 {
+                // assert s[x] + s[y] > |s|;
+                assert |s[x:=0]| == 0;
+                assert y in s[x:=0];
+                assert false;
+            }
+            assert exists x :: x in s && forall y :: y in s ==> x <= y;
+        } else {
+            var s' := s[x := 0];
+            assert |s'| > 0;
+            // assert s == s' + {x};
+            ThereIsAMinimumMultisetNat(s');
+            assert exists x :: x in s && forall y :: y in s ==> x <= y;
+        }
+    }
+
     function SetFold<T>(xs: set<nat>, f: (nat, T) -> T, init: T): T {
         if xs == {} then init
         else
             ThereIsAMinimumNat(xs);
             var x :| x in xs && forall z :: z in xs ==> x <= z;
             SetFold(xs-{x}, f, f(x, init))
+    }
+
+    function MultisetFold<T>(xs: multiset<nat>, f: (nat, T) -> T, init: T): T {
+        if xs == multiset{} then init
+        else
+            ThereIsAMinimumMultisetNat(xs);
+            var x :| x in xs && forall z :: z in xs ==> x <= z;
+            MultisetFold(xs[x := 0], f, f(x, init))
     }
 
     method problem7_2_1(input: string) returns (answer: int) {
@@ -113,7 +144,7 @@ module Problem7 {
         answer := |beams|;
     }
 
-    method problem7_2(input: string) returns (answer: int) {
+    method problem7_2_2(input: string) returns (answer: int) {
         var start, splitters, lines := parseInput(input);
         var results: multiset<nat> := SetFold(set i: nat | 0 <= i < |lines|, (y, beams: multiset<nat>) => 
             var lines_splitters := set sp | sp in splitters && sp.0 in beams && sp.1 == y :: sp.0;
@@ -124,6 +155,24 @@ module Problem7 {
         , multiset{start.0});
 
         answer := |results|;
+    }
+
+    method problem7_2(input: string) returns (answer: int) {
+        var start, splitters, lines := parseInput(input);
+        var results: multiset<nat> := SetFold(set i: nat | 0 <= i < |lines|, (y, beams: multiset<nat>) => 
+            var line_splitters := set sp | sp in splitters && sp.0 in beams && sp.1 == y :: sp.0;
+            var splitters_intersected := SetFold(line_splitters, (x, next_beams: multiset<nat>) => next_beams[x := beams[x]], multiset{});
+            var split_counts := SetFold(line_splitters, (i, sc: multiset<nat>) => if (i as int-1) < 0 then sc else sc[i-1 := sc[i-1]+beams[i]][i+1 := sc[i+1]+beams[i]], multiset{});
+        beams - splitters_intersected + split_counts
+        , multiset{start.0});
+
+        answer := |results|;
+    }
+
+    method {:test} test() {
+        var ts := {1, 4, 7, 9};
+        var split_counts := SetFold(ts, (i, sc: multiset<nat>) => if (i as int-1) < 0 then sc else sc[i-1 := sc[i-1]+1][i+1 := sc[i+1]+1], multiset{});
+        print "\n", split_counts;
     }
 
 }
