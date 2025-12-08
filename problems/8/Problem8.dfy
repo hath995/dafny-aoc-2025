@@ -62,12 +62,43 @@ module Problem8 {
         a.2 <= b.2
     }
 
-    function AllPairs(xs: seq<(nat,nat,nat)>, i: nat): seq<(nat, nat, nat)> {
-        if xs == [] then []
+    function AllPairs(xs: seq<(nat,nat,nat)>, i: nat): seq<(nat, nat, nat)> 
+        ensures |AllPairs(xs, i)| == ((|xs| * (|xs|-1))/2)
+    {
+        if xs == [] then 
+            []
         else seq(|xs|-1, k requires 0 <= k < |xs|-1 => (i, i+k+1, dist(xs[0], xs[k+1])))+AllPairs(xs[1..], i+1)
+    } by method {
+        var arr := new (nat,nat,nat)[|xs|*(|xs|-1)/2];
+        if |xs| == 0 {
+            return [];
+        }
+        var count := 0;
+        for i := 0 to |xs|-1 {
+            for j := i+1 to |xs| {
+                arr[count] := (i,j,dist(xs[i], xs[j]));
+                count := count+1;
+            }
+        }
+        return arr[..];
     }
 
-    method {:verify} problem8_1(input: string) returns (x: int) 
+    method AllPairsArr(xs: seq<(nat,nat, nat)>) returns (arr: array<((nat,nat),int)>) {
+        if |xs| == 0 {
+            return new ((nat,nat),nat)[0];
+        }
+        arr := new ((nat,nat),nat)[|xs|*(|xs|-1)/2];
+        var count := 0;
+        for i := 0 to |xs|-1 {
+            for j := i+1 to |xs| {
+                arr[count] := ((i,j),dist(xs[i], xs[j]));
+                count := count+1;
+            }
+        }
+        return arr;
+    }
+
+    method {:verify} problem8_1_1(input: string) returns (x: int) 
         decreases *
     {
         x:=0;
@@ -75,6 +106,7 @@ module Problem8 {
         var cmap: map<(nat, nat, nat), nat> := map i | 0 <= i < |coords| :: coords[i] := i;
         // var pairs := set i: nat,j: nat | 0 <= i < j < |coords| :: (i,j, dist(coords[i], coords[j]));
         var pairs := MergeSortBy(lte, AllPairs(coords, 0));
+        // print "\npairs: ", pairs;
         assert forall p :: p in pairs ==> 0 <= p.0 < p.1 < |coords|;
         // expect pairs != {};
         var qu := new QuickUnion(|coords|);
@@ -122,7 +154,115 @@ module Problem8 {
         return FoldLeft((a,b)=>a*b, 1, sres[..min(3, |sres|)]);
     }
 
+    method {:verify} problem8_1(input: string) returns (x: int) 
+        decreases *
+    {
+        x:=0;
+        var coords := parseInput(input);
+        var cmap: map<(nat, nat, nat), nat> := map i | 0 <= i < |coords| :: coords[i] := i;
+        // var pairs := set i: nat,j: nat | 0 <= i < j < |coords| :: (i,j, dist(coords[i], coords[j]));
+        var pairs := AllPairsArr(coords);
+        var pw := new PriorityQueue<(nat,nat)>(1, (0,0));
+        pw.heap := pairs;
+        pw.capacity := pairs.Length;
+        pw.size := pairs.Length;
+        for i := 0 to (pairs.Length/2) - 1 {
+            pw.heapifyDown((pairs.Length/2) - 1 - i);
+        }
+        // print "\npairs: ", pairs;
+        // assert forall p :: p in pairs ==> 0 <= p.0 < p.1 < |coords|;
+        // expect pairs != {};
+        var qu := new QuickUnion(|coords|);
+        assert fresh(qu);
+        var count := 1000-1;
+        while count > 0 
+            invariant qu.Valid()
+            invariant fresh(qu)
+            // invariant forall p :: p in pairs ==> 0 <= p.0 < p.1 < |coords|
+            invariant qu.n == |coords|
+            modifies qu
+            decreases *
+        {
+            var nearest := pw.extractMin();
+            // ThereIsAMinimumTuple(pairs);
+            // var nearest :| nearest in pairs && forall p :: p in pairs ==> nearest.2 <= p.2;
+            // print "\nnearest: ", coords[nearest.0], " ", coords[nearest.1], " ", nearest.2;
+            var areConnected := qu.connected(nearest.0, nearest.1);
+            // print "\nareConnected: ", areConnected;
+            if !areConnected {
+                qu.union(nearest.0, nearest.1);
+            }
+            count := count - 1;
+            // pairs:= pairs[1..];
+
+        }
+        for i := 0 to |coords| 
+            invariant qu.Valid()
+            invariant fresh(qu)
+            invariant qu.n == |coords|
+            modifies qu
+        {
+            var root := qu.findRoot(i);
+        }
+        var counts := multiset(qu.parent[..]);
+        // print "\ncounts, ", qu.parent[..];
+        var res: seq<nat> := [];
+        while counts != multiset{} {
+            var x :| x in counts;
+            res := res + [counts[x]];
+            counts := counts[x := 0];
+        }
+        var sres := MergeSortBy(gte, res);
+        print "\n",sres,"\n";
+        return FoldLeft((a,b)=>a*b, 1, sres[..min(3, |sres|)]);
+    }
+
     method problem8_2(input: string) returns (x: int) 
+        decreases *
+    {
+        x:=0;
+        var coords := parseInput(input);
+        var cmap: map<(nat, nat, nat), nat> := map i | 0 <= i < |coords| :: coords[i] := i;
+        // var pairs := set i: nat,j: nat | 0 <= i < j < |coords| :: (i,j, dist(coords[i], coords[j]));
+        var pairs := AllPairsArr(coords);
+        var pw := new PriorityQueue<(nat,nat)>(1, (0,0));
+        pw.heap := pairs;
+        pw.capacity := pairs.Length;
+        pw.size := pairs.Length;
+        for i := 0 to (pairs.Length/2) - 1 {
+            pw.heapifyDown((pairs.Length/2) - 1 - i);
+        }
+        // expect pairs != {};
+        var qu := new QuickUnion(|coords|);
+        assert fresh(qu);
+        var count := 1000-1;
+        while count > 0
+            invariant qu.Valid()
+            invariant fresh(qu)
+            // invariant forall p :: p in pairs ==> 0 <= p.0 < p.1 < |coords|
+            invariant qu.n == |coords|
+            modifies qu
+            decreases *
+        {
+            var nearest := pw.extractMin();
+            // ThereIsAMinimumTuple(pairs);
+            // var nearest :| nearest in pairs && forall p :: p in pairs ==> nearest.2 <= p.2;
+            // print "\nnearest: ", coords[nearest.0], " ", coords[nearest.1], " ", nearest.2;
+            var areConnected := qu.connected(nearest.0, nearest.1);
+            // print "\nareConnected: ", areConnected;
+            if !areConnected {
+                qu.union(nearest.0, nearest.1);
+                if count == 1 {
+                    return coords[nearest.0].0 * coords[nearest.1].0;
+                }
+                count := count - 1;
+            }
+            // pairs:= pairs[1..];
+
+        }
+    }
+
+    method problem8_2_1(input: string) returns (x: int) 
         decreases *
     {
         x:=0;
