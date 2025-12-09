@@ -77,43 +77,56 @@ module Problem8 {
         }
 
         var count := 0; 
-        // Outer loop: Processes one row (i) at a time
+
         for i := 0 to |xs| 
-            // Bounds check helpers
             invariant 0 <= i <= |xs|
             invariant 0 <= count <= len
-            
-            // MATH HELP: This formula tracks the arithmetic sum of rows processed so far.
-            // It proves 'count' never exceeds 'len'.
             invariant count == i * |xs| - (i * (i + 1)) / 2
-
-            // THE CORE LOGIC INVARIANT:
-            // "What we have built so far" + "The recursive definition of what is left" 
-            // == "The total expected answer".
             invariant arr[..count] + AllPairs(xs[i..], offset + i) == AllPairs(xs, offset)
         {
-            // Ghost variable to remember the state of the array before this inner loop
             ghost var rowStart := count; 
+            
+            // Help 1: Pre-state snapshot for slicing logic
+            ghost var preArr := arr[..count];
 
-            // Inner loop: Fills the current row
             label Inner:
             for j := i + 1 to |xs| 
                 invariant i + 1 <= j <= |xs|
                 invariant count == rowStart + (j - (i + 1))
                 
-                // Inner Invariant:
-                // We verify that the chunk we are currently writing matches the 'seq' 
-                // part of the recursive function's definition for the current head.
+                // The "seq" invariant is heavy, but we keep it for correctness.
+                // We will add assertions below to help prove it quickly.
                 invariant arr[rowStart..count] == 
                         seq(j - (i+1), k requires 0 <= k < j-(i+1) => 
                             (offset+i, offset+i+k+1, dist(xs[i], xs[i+k+1])))
                 
-                // We must explicitly maintain that the PREVIOUS parts of the array didn't change.
                 invariant arr[..rowStart] == old@Inner(arr[..rowStart])
             {
-                // Note: We use 'offset + i' and 'offset + j' to match the recursive spec
+                // Help 2: Explicit slicing decomposition
+                // This prevents Z3 from having to rediscover how indices map to slices
+                assert arr[..count] == arr[..rowStart] + arr[rowStart..count];
+
                 arr[count] := (offset + i, offset + j, dist(xs[i], xs[j]));
                 count := count + 1;
+
+                // Help 3: The "Inductive Step" for the sequence
+                // We prove that "Old Sequence + New Element == New Sequence"
+                // This is the specific "extensionality" help Dafny needs here.
+                assert arr[rowStart..count] == 
+                    arr[rowStart..count-1] + [arr[count-1]];
+            }
+
+            // Help 4: Unroll the recursive function manually
+            // At the end of the loop, we are transitioning from 'i' to 'i+1'.
+            // We explicitly show Dafny that: 
+            // AllPairs(xs[i..]) == CurrentRow + AllPairs(xs[i+1..])
+            if i < |xs| {
+                assert xs[i..][1..] == xs[i+1..]; // List tail property
+                assert AllPairs(xs[i..], offset+i) == 
+                    arr[rowStart..count] + AllPairs(xs[i+1..], offset+i+1);
+                
+                // Help 5: Re-assert the composition for the next outer loop invariant
+                assert arr[..count] == arr[..rowStart] + arr[rowStart..count];
             }
         }
         return arr[..];
