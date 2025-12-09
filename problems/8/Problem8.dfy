@@ -59,25 +59,61 @@ module Problem8 {
     }
 
     predicate lte(a: (nat,nat,nat),b: (nat,nat,nat)) {
-        a.2 <= b.2
+        a.2 < b.2 || (a.2 == b.2 && (a.1 < b.1 || (a.1 == b.1 && a.0 <= b.0)))
     }
 
-    function AllPairs(xs: seq<(nat,nat,nat)>, i: nat): seq<(nat, nat, nat)> 
-        ensures |AllPairs(xs, i)| == ((|xs| * (|xs|-1))/2)
+    function AllPairs(xs: seq<(nat,nat,nat)>, offset: nat): seq<(nat, nat, nat)> 
+        ensures |AllPairs(xs, offset)| == ((|xs| * (|xs|-1))/2)
     {
         if xs == [] then 
             []
-        else seq(|xs|-1, k requires 0 <= k < |xs|-1 => (i, i+k+1, dist(xs[0], xs[k+1])))+AllPairs(xs[1..], i+1)
+        else seq(|xs|-1, k requires 0 <= k < |xs|-1 => (offset, offset+k+1, dist(xs[0], xs[k+1])))+AllPairs(xs[1..], offset+1)
     } by method {
-        var arr := new (nat,nat,nat)[|xs|*(|xs|-1)/2];
+        var len := |xs| * (|xs|-1) / 2;
+        var arr := new (nat,nat,nat)[len];
+        
         if |xs| == 0 {
             return [];
         }
-        var count := 0;
-        for i := 0 to |xs|-1 {
-            for j := i+1 to |xs| {
-                arr[count] := (i,j,dist(xs[i], xs[j]));
-                count := count+1;
+
+        var count := 0; 
+        // Outer loop: Processes one row (i) at a time
+        for i := 0 to |xs| 
+            // Bounds check helpers
+            invariant 0 <= i <= |xs|
+            invariant 0 <= count <= len
+            
+            // MATH HELP: This formula tracks the arithmetic sum of rows processed so far.
+            // It proves 'count' never exceeds 'len'.
+            invariant count == i * |xs| - (i * (i + 1)) / 2
+
+            // THE CORE LOGIC INVARIANT:
+            // "What we have built so far" + "The recursive definition of what is left" 
+            // == "The total expected answer".
+            invariant arr[..count] + AllPairs(xs[i..], offset + i) == AllPairs(xs, offset)
+        {
+            // Ghost variable to remember the state of the array before this inner loop
+            ghost var rowStart := count; 
+
+            // Inner loop: Fills the current row
+            label Inner:
+            for j := i + 1 to |xs| 
+                invariant i + 1 <= j <= |xs|
+                invariant count == rowStart + (j - (i + 1))
+                
+                // Inner Invariant:
+                // We verify that the chunk we are currently writing matches the 'seq' 
+                // part of the recursive function's definition for the current head.
+                invariant arr[rowStart..count] == 
+                        seq(j - (i+1), k requires 0 <= k < j-(i+1) => 
+                            (offset+i, offset+i+k+1, dist(xs[i], xs[i+k+1])))
+                
+                // We must explicitly maintain that the PREVIOUS parts of the array didn't change.
+                invariant arr[..rowStart] == old@Inner(arr[..rowStart])
+            {
+                // Note: We use 'offset + i' and 'offset + j' to match the recursive spec
+                arr[count] := (offset + i, offset + j, dist(xs[i], xs[j]));
+                count := count + 1;
             }
         }
         return arr[..];
