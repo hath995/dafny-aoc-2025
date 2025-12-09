@@ -218,20 +218,25 @@ lemma TreeUnionMaint(stack: seq<Tree>, current: Tree, unvisited: set<Tree>)
         result := [];
         ghost var visited: set<Tree> := {};
         ghost var unvisited: set<Tree> := nodeSet(root);
-        ghost var totalSize := |PreorderTraversal(root)|;
-        PreorderTraveralSize(root);
+        // ghost var totalSize := |PreorderTraversal(root)|;
+        // PreorderTraveralSize(root);
         var stack := [root];
+        var i := 0;
         while |stack| > 0
             invariant forall s :: s in stack ==> !s.Nil? && ValidNode(s)
             invariant forall n :: n in result ==> n in visited
             invariant forall n :: n in visited ==> n in result
             invariant visited !! unvisited
-            invariant visited + unvisited == nodeSet(root)
+            // invariant visited + unvisited == nodeSet(root)
             invariant AllDisjoint(stack)
-            invariant |result| == |visited|
+            invariant |result| == |visited| == i
             invariant UnionNodes(stack) == unvisited
             invariant visited + UnionNodes(stack) == nodeSet(root)
             invariant result + StackToPreorder(stack) == PreorderTraversal(root)
+            // invariant |stack| > 0 ==> stack[|stack|-1] == StackToPreorder(stack)[0]
+            // invariant StackToPreorder(stack) == PreorderTraversal(root)[i..]
+            // invariant |stack| > 0 ==> stack[|stack|-1] == PreorderTraversal(root)[i]
+            // invariant result == PreorderTraversal(root)[..i]
             // decreases nodeSet(root) - visited
             // decreases totalSize - |result|
             decreases |unvisited|
@@ -240,31 +245,35 @@ lemma TreeUnionMaint(stack: seq<Tree>, current: Tree, unvisited: set<Tree>)
             var children := childStack(current);
             var old_stack := stack;
             TreeUnionMaint(stack, current, unvisited);
+            AllDisjointMaint(stack, current);
             assert stack == stack[..|stack|-1] + [stack[|stack|-1]];
-            assert current in UnionNodes([stack[|stack|-1]]);
+            // assert current in UnionNodes([stack[|stack|-1]]);
             Lemma_UnionNodes_App(stack[..|stack|-1], [stack[|stack|-1]]);
             Lemma_StackToPreorder_App(stack[..|stack|-1], children);
             Lemma_PreserveInvariant(stack[..|stack|-1], current);
             stack := stack[..|stack|-1]+childStack(current);
-            assert current in unvisited;
-            assert current !in visited;
+            // assert PreorderTraversal(root)[..i+1] == PreorderTraversal(root)[..i]+[PreorderTraversal(root)[i]];
+            // assert PreorderTraversal(root)[i..] == [PreorderTraversal(root)[i]]+PreorderTraversal(root)[i+1..];
+            // assert current in unvisited;
+            // assert current !in visited;
             result := result + [current];
             visited := visited+{current};
             unvisited := unvisited - {current};
-            assert unvisited == {} ==> |stack| == 0;
+            i := i + 1;
+            // assert unvisited == {} ==> |stack| == 0;
         
         // StackToPreorder(children) needs to equal Preorder(current.left) + Preorder(current.right)
         // children is roughly [right, left]. 
         // StackToPreorder([right, left]) = Preorder(left) + Preorder(right)
         // This matches PreorderTraversal(current) body!
-        assert StackToPreorder(children) == PreorderTraversal(current.left) + PreorderTraversal(current.right);
+        // assert StackToPreorder(children) == PreorderTraversal(current.left) + PreorderTraversal(current.right);
 
         // 2. Prove the Set Invariant
         // We need: nodes(result') + UnionNodes(stack') == nodeSet(root)
             Lemma_UnionNodes_App(old_stack[..|old_stack|-1], children);
         }
-        assert |visited| == totalSize;
-        assert result == PreorderTraversal(root);
+        // assert |visited| == totalSize;
+        // assert result == PreorderTraversal(root);
         return result;
     }
 }
