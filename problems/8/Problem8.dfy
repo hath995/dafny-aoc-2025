@@ -62,6 +62,98 @@ module Problem8 {
         a.2 < b.2 || (a.2 == b.2 && (a.1 < b.1 || (a.1 == b.1 && a.0 <= b.0)))
     }
 
+    function RowCount(n: nat, i: nat): nat
+        requires 0 <= i <= n
+        requires n > 0
+    {
+        // Dafny can usually prove this is >= 0 automatically.
+        // If not, it calculates (i * (2*n - i - 1)) / 2, where i <= n implies 2n - i - 1 >= 0.
+        calc {
+            i * n - (i * (i + 1)) / 2;
+            2*(i * n)/2 - (i * (i + 1)) / 2;
+        }
+        i * n - (i * (i + 1)) / 2 
+    }
+
+    lemma LemmaRowStep(n: int, i: int)
+        requires 0 <= i < n
+        ensures RowCount(n, i+1) == RowCount(n, i) + (n - (i + 1))
+    {
+        reveal RowCount();
+    }
+
+    lemma nv(n: nat)
+        ensures (2*n)%2 == 0
+    {
+        if n == 0 {
+
+        }else{
+
+        }
+    }
+
+    lemma NtimesNplusOne(n: int)
+        ensures (n * (n + 1)) % 2 == 0
+    {
+        if n % 2 == 0 {
+            var k: int := n/2;
+            calc {
+                n * (n+1);
+                2*k * (n+1);
+                2*(k * (n+1));
+            }
+            assert 2*k == n;
+            assert (2*k * (n+1)) % 2 == 0;
+            assert (n * (n + 1)) % 2 == 0;
+        }else{
+            assert (n+1)%2 == 0;
+            var k := (n+1)/2;
+            var b := n*k;
+            calc {
+                n*(n+1);
+                n*(2*k);
+                2*n*k;
+                2*b;
+            }
+            nv(b);
+            assert (2*b)%2 == 0;
+            assert 2*k == n+1;
+            assert (n * (n + 1)) % 2 == 0;
+        }
+    }
+    // 3. Helper to prove the total length matches the end state.
+    lemma LemmaTotalSize(n: nat)
+        requires n > 0
+        ensures RowCount(n, n) == n * (n - 1) / 2
+    {
+        calc {
+            RowCount(n, n);
+            n * n - (n * (n + 1)) / 2;
+            // Hint: prove evenness much more simply
+            { 
+                assert n % 2 == 0 || (n + 1) % 2 == 0; 
+                NtimesNplusOne(n);
+                assert (n * (n + 1)) % 2 == 0; 
+            } 
+            (2 * n * n) / 2 - (n * (n + 1)) / 2;
+            // THE FIX: Explicitly justify the merge of the fractions
+            { 
+                // We assert the algebraic property explicitly for these specific values
+                nv(n*n);
+                assert (2 * n * n) % 2 == 0;
+                NtimesNplusOne(n);
+                assert (n * (n + 1)) % 2 == 0;
+                // Lemma logic inline: A/2 - B/2 == (A-B)/2
+                assert (2 * n * n) / 2 - (n * (n + 1)) / 2 
+                    == (2 * n * n - n * (n + 1)) / 2;
+            }
+            (2 * n * n - n * (n + 1)) / 2;
+            (2 * n * n - (n * n + n)) / 2;
+            (n * n - n) / 2;
+            n * (n - 1) / 2;
+        }
+    }
+
     function AllPairs(xs: seq<(nat,nat,nat)>, offset: nat): seq<(nat, nat, nat)> 
         ensures |AllPairs(xs, offset)| == ((|xs| * (|xs|-1))/2)
     {
@@ -132,20 +224,127 @@ module Problem8 {
         return arr[..];
     }
 
-    method AllPairsArr(xs: seq<(nat,nat, nat)>) returns (arr: array<((nat,nat),int)>) {
-        if |xs| == 0 {
-            return new ((nat,nat),nat)[0];
+    lemma kNat(k: nat)
+        ensures k * (k - 1) >= 0
+    {}
+
+    lemma LemmaInnerRowBound(n: int, i: int, j: int)
+        requires 0 <= i < n
+        requires i < j <= n 
+        ensures RowCount(n, i) + (j - (i + 1)) <= RowCount(n, n)
+    {
+        reveal RowCount();
+        
+        var m := i + 1;
+        var k := n - m;
+        assert k >= 0;
+
+        // Helper: Prove evenness so we can remove division later
+        NtimesNplusOne(n);
+        NtimesNplusOne(m);
+        assert (n * (n + 1)) % 2 == 0;
+        assert (m * (m + 1)) % 2 == 0;
+
+        calc {
+            2 * (RowCount(n, n) - RowCount(n, m));
+            
+            // 1. Distribute the 2
+            2 * RowCount(n, n) - 2 * RowCount(n, m);
+            
+            // 2. Expand RowCount(n, n)
+            //    Goal: 2 * (n*n - n*(n+1)/2)  ->  n*(n-1)
+            {
+                calc {
+                    2 * RowCount(n, n);
+                    2 * (n * n - (n * (n + 1)) / 2);
+                    2 * n * n - 2 * ((n * (n + 1)) / 2);
+                    // Apply evenness property: 2 * (X / 2) == X
+                    2 * n * n - n * (n + 1);
+                    2 * n * n - (n * n + n);
+                    n * n - n;
+                    n * (n - 1);
+                }
+            }
+            n * (n - 1) - 2 * RowCount(n, m);
+
+            // 3. Expand RowCount(n, m)
+            //    Goal: 2 * (m*n - m*(m+1)/2)  ->  2mn - (m^2+m)
+            {
+                calc {
+                    2 * RowCount(n, m);
+                    2 * (m * n - (m * (m + 1)) / 2);
+                    2 * m * n - 2 * ((m * (m + 1)) / 2);
+                    // Apply evenness property
+                    2 * m * n - m * (m + 1);
+                }
+            }
+            n * (n - 1) - (2 * m * n - m * (m + 1));
+            
+            // 4. Final Algebraic Simplification
+            (n * n - n) - (2 * m * n - m * m - m);
+            n * n - 2 * m * n + m * m - n + m;
+            // Factor into (n-m) terms
+            (n - m) * (n - m) - (n - m);
+            k * k - k;
+            k * (k - 1);
         }
-        arr := new ((nat,nat),nat)[|xs|*(|xs|-1)/2];
+
+        // Since k >= 0 (because i < n), k*(k-1) >= 0.
+        kNat(k);
+        assert RowCount(n, m) <= RowCount(n, n);
+        
+        // Final logic step connecting index j to the row bounds
+        // index == Start(i) + (j - (i+1))
+        // Max index in this loop is when j=n, which is Start(i) + (n - (i+1)) == Start(i+1)
+    }
+    method AllPairsArr(xs: seq<(nat,nat, nat)>) returns (arr: array<((nat,nat),int)>)
+    {
+        if |xs| == 0 {
+            return new ((nat,nat),int)[0](_ => ((0,0),0));
+        }
+
+        // Use 'int' for n to match our helper functions
+        var n: nat := |xs|;
+        assert n > 0;
+        
+        // Prove correct length calculation
+        LemmaTotalSize(n);
+        var len := n * (n - 1) / 2;
+        
+        // Allocate array
+        arr := new ((nat,nat),int)[len](_ => ((0,0),0));
+        assert arr.Length == len;
+        
         var count := 0;
-        for i := 0 to |xs|-1 {
-            for j := i+1 to |xs| {
-                arr[count] := ((i,j),dist(xs[i], xs[j]));
-                count := count+1;
+        
+        // Outer Loop
+        for i := 0 to n
+            invariant 0 <= i <= n
+            // Map 'count' to our opaque arithmetic function
+            invariant count == RowCount(n, i)
+            invariant 0 <= count <= len
+        {
+            // Apply the lemma to transition 'count' for the next iteration
+            if i < n {
+                LemmaRowStep(n, i);
+            }
+
+            ghost var rowStart := count; 
+            
+            // Inner Loop
+            for j := i + 1 to n
+                invariant i + 1 <= j <= n
+                // Logic here is now purely linear: count = start + offset
+                invariant count == rowStart + (j - (i + 1))
+                invariant 0 <= count <= len
+            {
+                LemmaInnerRowBound(n,i,j);
+                arr[count] := ((i as nat, j as nat), dist(xs[i], xs[j]));
+                count := count + 1;
             }
         }
         return arr;
-    }
+}
 
     method {:verify} problem8_1_1(input: string) returns (x: int) 
         decreases *
