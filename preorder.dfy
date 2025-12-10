@@ -56,7 +56,9 @@ module Preorder {
         else {tress[0]} + nodes(tress[1..])
     }
 
-    function UnionNodes(roots: seq<Tree>): set<Tree> {
+    function UnionNodes(roots: seq<Tree>): set<Tree> 
+        ensures forall r :: r in roots && r.Node? ==> r in UnionNodes(roots)
+    {
         if roots == [] then {}
         else nodeSet(roots[0])+UnionNodes(roots[1..])
     }
@@ -107,62 +109,62 @@ lemma Lemma_PreserveInvariant(prefix: seq<Tree>, current: Tree)
     }
 
     lemma {:verify false} Lemma_StackTopIsPreorderHead(prefix: seq<Tree>, current: Tree)
-    requires current.Node? // or current != Nil
-    requires forall n :: n in prefix ==> n != Nil
-    ensures 
-        var new_stack := prefix + childStack(current);
-        |new_stack| > 0 ==> 
-        new_stack[|new_stack|-1] == StackToPreorder(new_stack)[0]
-{
-    var children := childStack(current);
-    var new_stack := prefix + children;
-
-    // 1. Establish that all nodes in the new stack are valid (not Nil)
-    // This is required to ensure PreorderTraversal(node) is not empty.
-    forall c | c in children 
-        ensures c != Nil 
+        requires current.Node? // or current != Nil
+        requires forall n :: n in prefix ==> n != Nil
+        ensures 
+            var new_stack := prefix + childStack(current);
+            |new_stack| > 0 ==> 
+            new_stack[|new_stack|-1] == StackToPreorder(new_stack)[0]
     {
-        // childStack logic only includes nodes if they match .Node? or != Nil
-    }
-    assert forall n :: n in new_stack ==> n != Nil;
+        var children := childStack(current);
+        var new_stack := prefix + children;
 
-    if |new_stack| > 0 {
-        // 2. Identify the top of the stack
-        var top := new_stack[|new_stack|-1];
-        
-        // 3. Expand the definition of StackToPreorder for the new stack
-        // StackToPreorder(s) == PreorderTraversal(s.last) + ...
-        assert StackToPreorder(new_stack) == PreorderTraversal(top) + StackToPreorder(new_stack[..|new_stack|-1]);
-        
-        // 4. Expand PreorderTraversal for the top node
-        // Since top != Nil, it generates a sequence starting with itself
-        assert PreorderTraversal(top) == [top] + PreorderTraversal(top.left) + PreorderTraversal(top.right);
-        
-        // 5. Conclusion
-        // StackToPreorder(new_stack) starts with [top] + ...
-        // Therefore, its first element is 'top'.
-        assert StackToPreorder(new_stack)[0] == top;
-    }
-}
+        // 1. Establish that all nodes in the new stack are valid (not Nil)
+        // This is required to ensure PreorderTraversal(node) is not empty.
+        forall c | c in children 
+            ensures c != Nil 
+        {
+            // childStack logic only includes nodes if they match .Node? or != Nil
+        }
+        assert forall n :: n in new_stack ==> n != Nil;
 
-lemma Lemma_UnionNodes_App(a: seq<Tree>, b: seq<Tree>)
-    ensures UnionNodes(a + b) == UnionNodes(a) + UnionNodes(b)
-{
-    if a == [] {
-        assert a + b == b;
-    } else {
-        assert (a+b)[1..] == a[1..]+b;
-        Lemma_UnionNodes_App(a[1..], b);
+        if |new_stack| > 0 {
+            // 2. Identify the top of the stack
+            var top := new_stack[|new_stack|-1];
+            
+            // 3. Expand the definition of StackToPreorder for the new stack
+            // StackToPreorder(s) == PreorderTraversal(s.last) + ...
+            assert StackToPreorder(new_stack) == PreorderTraversal(top) + StackToPreorder(new_stack[..|new_stack|-1]);
+            
+            // 4. Expand PreorderTraversal for the top node
+            // Since top != Nil, it generates a sequence starting with itself
+            assert PreorderTraversal(top) == [top] + PreorderTraversal(top.left) + PreorderTraversal(top.right);
+            
+            // 5. Conclusion
+            // StackToPreorder(new_stack) starts with [top] + ...
+            // Therefore, its first element is 'top'.
+            assert StackToPreorder(new_stack)[0] == top;
+        }
     }
-}
 
-  lemma TreeUnionLemma(nodes: seq<Tree>)
+    lemma Lemma_UnionNodes_App(a: seq<Tree>, b: seq<Tree>)
+        ensures UnionNodes(a + b) == UnionNodes(a) + UnionNodes(b)
+    {
+        if a == [] {
+            assert a + b == b;
+        } else {
+            assert (a+b)[1..] == a[1..]+b;
+            Lemma_UnionNodes_App(a[1..], b);
+        }
+    }
+
+    lemma TreeUnionLemma(nodes: seq<Tree>)
         ensures forall x :: x in UnionNodes(nodes) ==> exists k :: 0 <= k < |nodes| && x in nodeSet(nodes[k])
     {
 
     }
 
-lemma TreeUnionMaint(stack: seq<Tree>, current: Tree, unvisited: set<Tree>)
+    lemma TreeUnionMaint(stack: seq<Tree>, current: Tree, unvisited: set<Tree>)
         requires |stack| > 0
         requires current.Node?
         requires unvisited == UnionNodes(stack)
@@ -225,7 +227,7 @@ lemma TreeUnionMaint(stack: seq<Tree>, current: Tree, unvisited: set<Tree>)
         forall x, y :: 0 <= x < y < |ts| && x != y ==> nodeSet(ts[x]) !! nodeSet(ts[y])
     }
 
-       lemma  AllDisjointMaint(stack: seq<Tree>, current: Tree)
+    lemma  AllDisjointMaint(stack: seq<Tree>, current: Tree)
         requires ValidNode(current)
         requires |stack| > 0
         requires AllDisjoint(stack)
@@ -292,10 +294,13 @@ lemma TreeUnionMaint(stack: seq<Tree>, current: Tree, unvisited: set<Tree>)
             Lemma_StackToPreorder_App(stack[..|stack|-1], children);
             Lemma_PreserveInvariant(stack[..|stack|-1], current);
             assert result+[current]+StackToPreorder(stack[..|stack|-1] + childStack(current)) == PreorderTraversal(root);
+            // TreeUnionLemma(stack);
+            // assert current == stack[|stack|-1];
+            // assert current in stack;
+            // assert current in unvisited;
             stack := stack[..|stack|-1]+childStack(current);
             // assert PreorderTraversal(root)[..i+1] == PreorderTraversal(root)[..i]+[PreorderTraversal(root)[i]];
             // assert PreorderTraversal(root)[i..] == [PreorderTraversal(root)[i]]+PreorderTraversal(root)[i+1..];
-            // assert current in unvisited;
             // assert current !in visited;
             result := result + [current];
             visited := visited+{current};
@@ -315,6 +320,50 @@ lemma TreeUnionMaint(stack: seq<Tree>, current: Tree, unvisited: set<Tree>)
         }
         // assert |visited| == totalSize;
         // assert result == PreorderTraversal(root);
+        return result;
+    }
+
+    method TraverseBasicClean(root: Tree) returns (result: seq<Tree>)
+        requires !root.Nil?
+        requires ValidNode(root)
+        ensures result == PreorderTraversal(root)
+    {
+        result := [];
+        ghost var visited: set<Tree> := {};
+        ghost var unvisited: set<Tree> := nodeSet(root);
+        PreorderTraveralSize(root);
+        var stack := [root];
+        var i := 0;
+        while |stack| > 0
+            invariant forall s :: s in stack ==> !s.Nil? && ValidNode(s)
+            invariant forall n :: n in result ==> n in visited
+            invariant forall n :: n in visited ==> n in result
+            invariant visited !! unvisited
+            invariant AllDisjoint(stack)
+            invariant |result| == |visited| == i
+            invariant 0 <= i <= |PreorderTraversal(root)|
+            invariant UnionNodes(stack) == unvisited
+            invariant visited + UnionNodes(stack) == nodeSet(root)
+            invariant result + StackToPreorder(stack) == PreorderTraversal(root)
+            decreases |unvisited|
+        {
+            var current := stack[|stack|-1];
+            var children := childStack(current);
+            var old_stack := stack;
+            TreeUnionMaint(stack, current, unvisited);
+            AllDisjointMaint(stack, current);
+            assert stack == stack[..|stack|-1] + [stack[|stack|-1]];
+            Lemma_UnionNodes_App(stack[..|stack|-1], [stack[|stack|-1]]);
+            Lemma_StackToPreorder_App(stack[..|stack|-1], children);
+            Lemma_PreserveInvariant(stack[..|stack|-1], current);
+            assert result+[current]+StackToPreorder(stack[..|stack|-1] + childStack(current)) == PreorderTraversal(root);
+            stack := stack[..|stack|-1]+childStack(current);
+            result := result + [current];
+            visited := visited+{current};
+            unvisited := unvisited - {current};
+            i := i + 1;
+            Lemma_UnionNodes_App(old_stack[..|old_stack|-1], children);
+        }
         return result;
     }
 }

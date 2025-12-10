@@ -6,6 +6,7 @@ module Problem8 {
     import opened Split
     import opened ParseInt
     import opened Std.Collections.Seq
+    import opened Std.Relations
     import opened QuickUnion
 
     predicate Distinct<T(==)>(xs: seq<T>) {
@@ -61,6 +62,10 @@ module Problem8 {
     predicate lte(a: (nat,nat,nat),b: (nat,nat,nat)) {
         a.2 < b.2 || (a.2 == b.2 && (a.1 < b.1 || (a.1 == b.1 && a.0 <= b.0)))
     }
+
+    lemma IsTotalOrder()
+        ensures TotalOrdering(lte)
+    {}
 
     function RowCount(n: nat, i: nat): nat
         requires 0 <= i <= n
@@ -353,6 +358,8 @@ module Problem8 {
         var coords := parseInput(input);
         var cmap: map<(nat, nat, nat), nat> := map i | 0 <= i < |coords| :: coords[i] := i;
         // var pairs := set i: nat,j: nat | 0 <= i < j < |coords| :: (i,j, dist(coords[i], coords[j]));
+
+        IsTotalOrder();
         var pairs := MergeSortBy(lte, AllPairs(coords, 0));
         // print "\npairs: ", pairs;
         assert forall p :: p in pairs ==> 0 <= p.0 < p.1 < |coords|;
@@ -517,6 +524,7 @@ module Problem8 {
         var coords := parseInput(input);
         var cmap: map<(nat, nat, nat), nat> := map i | 0 <= i < |coords| :: coords[i] := i;
         // var pairs := set i: nat,j: nat | 0 <= i < j < |coords| :: (i,j, dist(coords[i], coords[j]));
+        IsTotalOrder();
         var pairs := MergeSortBy(lte, AllPairs(coords, 0));
         assert forall p :: p in pairs ==> 0 <= p.0 < p.1 < |coords|;
         // expect pairs != {};
