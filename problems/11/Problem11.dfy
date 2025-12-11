@@ -60,14 +60,47 @@ module Problem11 {
             print "\n";
         }
     }
+    method printMatrix(matrix: array2<NumberOrInfinity>)
+    {
+        for i := 0 to matrix.Length0 {
+            for j := 0 to matrix.Length1 {
+                if matrix[i, j].Infinity? {
+                    print ".", " ";
+                }else{
+                    print matrix[i,j].n, " ";
+                }
+            }
+            print "\n";
+        }
+    }
+    method findLongestPath(matrix: array2<NumberOrInfinity>) returns (max: int)
+    {
+        var maxLength: nint64 := 0;
+        for i := 0 to matrix.Length0 {
+            for j := 0 to matrix.Length1 {
+                if matrix[i, j].Number? && matrix[i,j].n < maxLength {
+                   maxLength := matrix[i,j].n;
+                }
+            }
+        }
+        max := -(maxLength as int);
+    }
     method problem11_1(input: string) returns (x: int) {
         var nodes, ids, adjMatrix := parseInput(input);
         print "\n", nodes, "\n";
         // printMatrixNat(adjMatrix);
         expect |ids| > 0 && "you" in ids && "out" in ids;
         var res := new nint64[|ids|,|ids|]((i,j) => 0);
+        var fw := new NumberOrInfinity[|ids|,|ids|]((i,j) reads adjMatrix => if adjMatrix[i,j] > 0 then Number(-1) else Infinity);
+        FloydWarshall(fw);
+        // printMatrix(fw);
+        // var maxLength := findLongestPath(fw);
+        expect fw[ids["you"], ids["out"]].Number?;
+        var maxLength := -fw[ids["you"], ids["out"]].n;
+        expect maxLength > 0;
+        print "\nmaxLength is ", maxLength, "\n"; 
         var next := matrixAdd(adjMatrix, res, |ids|, |ids|);
-        for i := 0 to |ids|-1
+        for i := 0 to maxLength
             invariant next.Length0 == next.Length1 == |ids|
             invariant res.Length0 == res.Length1 == |ids|
         {
@@ -84,14 +117,25 @@ module Problem11 {
         if a < b then a else b
     }
 
+    function max(a: nint64, b:nint64): nint64 {
+        if a > b then a else b
+    }
+
     method problem11_2(input: string) returns (x: int) {
         var nodes, ids, adjMatrix := parseInput(input);
         print "\n", nodes, "\n";
         // printMatrixNat(adjMatrix);
         expect |ids| > 0 && "you" in ids && "out" in ids;
         var res := new nint64[|ids|,|ids|]((i,j) => 0);
+        var fw := new NumberOrInfinity[|ids|,|ids|]((i,j) reads adjMatrix => if adjMatrix[i,j] > 0 then Number(-1) else Infinity);
+        FloydWarshall(fw);
+        // printMatrix(fw);
+        // var maxLength := findLongestPath(fw);
+        var maxLength := max(-fw[ids["svr"], ids["fft"]].n, max(-fw[ids["fft"], ids["dac"]].n, -fw[ids["dac"], ids["out"]].n));
+        expect maxLength > 0;
+        print "\nmaxLength is ", maxLength, "\n"; 
         var next := matrixAdd(adjMatrix, res, |ids|, |ids|);
-        for i := 0 to min(60, |ids|-1)
+        for i := 0 to maxLength
             invariant next.Length0 == next.Length1 == |ids|
             invariant res.Length0 == res.Length1 == |ids|
         {
