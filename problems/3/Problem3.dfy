@@ -44,7 +44,7 @@ module Problem3 {
     }
 
     function fls(xs: seq<nat>, index: nat, count: nat): seq<nat>
-        requires |xs| > count
+        requires |xs| >= count
         requires index < |xs|-count+1
         requires count > 0
         decreases count
